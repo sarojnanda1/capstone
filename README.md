@@ -13,7 +13,6 @@ explainability, and stability/drift.
 ## Data Sources
 - HMDA 2024: https://ffiec.cfpb.gov/data-publication/snapshot-national-loan-level-dataset
 - Fannie Mae: https://capitalmarkets.fanniemae.com/credit-risk-transfer/single-family-credit-risk-transfer/fannie-mae-single-family-loan-performance-data
-- FHFA PUDB: https://www.fhfa.gov/data/pudb
 
 ## Repository Structure
 capstone/
