@@ -20,7 +20,7 @@ capstone/
 ├── data/
 │   ├── hmda_2024_sample.csv
 │   ├── fanniemae_performance_panel.csv
-│   └── fhfa_pudb_supplement.csv
+│   └
 ├── notebooks/
 │   ├── 01_data_preparation.ipynb
 │   ├── 02_rq1_model_training.ipynb
