@@ -1,0 +1,89 @@
+{
+  "weights": {
+    "performance": 0.35,
+    "fairness": 0.3,
+    "explainability": 0.2,
+    "stability": 0.15
+  },
+  "raw_metrics": {
+    "Logistic Regression": {
+      "auc": 0.7167,
+      "min_dir": 0.7498,
+      "shap_rho": 0.9988,
+      "mean_psi": 0.4432
+    },
+    "XGBoost": {
+      "auc": 0.8348,
+      "min_dir": 0.7938,
+      "shap_rho": 0.9996,
+      "mean_psi": 0.359
+    },
+    "FNN": {
+      "auc": 0.8031,
+      "min_dir": 0.8291,
+      "shap_rho": 0.9524,
+      "mean_psi": 1.0387
+    }
+  },
+  "norm_scores": {
+    "Logistic Regression": {
+      "performance": 0.5,
+      "fairness": 0.0,
+      "explainability": 1.0,
+      "stability": 0.0
+    },
+    "XGBoost": {
+      "performance": 1.0,
+      "fairness": 0.0,
+      "explainability": 1.0,
+      "stability": 0.0
+    },
+    "FNN": {
+      "performance": 1.0,
+      "fairness": 0.5,
+      "explainability": 1.0,
+      "stability": 0.0
+    }
+  },
+  "dimension_scores": {
+    "Logistic Regression": {
+      "performance": 0.175,
+      "fairness": 0.0,
+      "explainability": 0.2,
+      "stability": 0.0
+    },
+    "XGBoost": {
+      "performance": 0.35,
+      "fairness": 0.0,
+      "explainability": 0.2,
+      "stability": 0.0
+    },
+    "FNN": {
+      "performance": 0.35,
+      "fairness": 0.15,
+      "explainability": 0.2,
+      "stability": 0.0
+    }
+  },
+  "mrrs_scores": {
+    "Logistic Regression": 0.375,
+    "XGBoost": 0.55,
+    "FNN": 0.7
+  },
+  "ranking": [
+    "FNN",
+    "XGBoost",
+    "Logistic Regression"
+  ],
+  "sensitivity": {
+    "n_stable_scenarios": 4,
+    "total_scenarios": 4,
+    "fully_robust": true
+  },
+  "expert_validation": {
+    "method": "sensitivity_analysis",
+    "note": "Cohen's Kappa deferred to doctoral dissertation; robustness assessed via Cell 5 weight perturbation.",
+    "n_stable_scenarios": 4,
+    "total_scenarios": 4
+  }
+}

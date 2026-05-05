@@ -1,0 +1,503 @@
+
+======================================================================
+  CELL 0 · Environment Initialization and GPU Verification
+======================================================================
+  ✓ TensorFlow GPU detected: 1 device(s)
+    PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')
+  ✓ Memory growth enabled
+  ✓ XGBoost GPU (CUDA) available
+  FNN batch size : 2048
+  FNN max epochs : 50
+
+  TensorFlow version : 2.20.0
+  XGBoost version    : 3.2.0
+  TF device          : /GPU:0
+  XGBoost device     : cuda
+  ✓ Cell 0 complete
+  Fannie Mae raw dir: /content/drive/MyDrive/capstone/data/raw/fanniemae
+  Models dir        : /content/drive/MyDrive/capstone/models
+
+======================================================================
+  CELL 1 · Load and prepare Fannie Mae Performance data
+======================================================================
+
+  Fannie Mae Single-Family Loan Performance Dataset
+  Source      : https://capitalmarkets.fanniemae.com
+
+  Files location : /content/drive/MyDrive/capstone/data/raw/fanniemae/
+  File format    : Pipe-delimited CSV, 110 columns, no header row
+  Files required : 24 quarterly Performance files
+    Pre-COVID  : 2017Q1 – 2019Q4 (12 files)
+    Post-COVID : 2021Q1 – 2023Q4 (12 files)
+    2020 excluded: COVID disruption confounds pre/post comparison
+
+  Key columns (confirmed from file inspection):
+    Col  1 : loan_id
+    Col  2 : reporting_period (MMYYYY)
+    Col  8 : current_interest_rate
+    Col  9 : current_upb
+    Col 19 : original_ltv
+    Col 22 : original_dti
+    Col 23 : borrower_credit_score (FICO)
+    Col 39 : current_delinquency_status
+               Values: 0=current, 1=30-day, 2=60-day, 3+=90-day, XX=unknown
+
+  Strategy: keep first record per loan_id within each quarterly file
+  to get one origination-period observation per loan.
+
+  Cache: processed panel saved to parquet after first load.
+  Subsequent sessions load from parquet (~2 min vs ~53 min).
+
+  Pre-COVID quarters  : ['2017Q1', '2017Q2', '2017Q3', '2017Q4', '2018Q1', '2018Q2', '2018Q3', '2018Q4', '2019Q1', '2019Q2', '2019Q3', '2019Q4']
+  Post-COVID quarters : ['2021Q1', '2021Q2', '2021Q3', '2021Q4', '2022Q1', '2022Q2', '2022Q3', '2022Q4', '2023Q1', '2023Q2', '2023Q3', '2023Q4']
+  Total quarters      : 24
+
+  ✓ Cached panel found at /content/drive/MyDrive/capstone/data/processed/fanniemae_panel.parquet
+    Loading from parquet (much faster than raw files)...
+
+    Panel loaded in  : 10s
+    Rows             : 13,759,538
+    Columns          : ['loan_id', 'reporting_period', 'current_interest_rate', 'current_upb', 'original_ltv', 'original_dti', 'borrower_credit_score', 'delinquency_status', 'quarter', 'delinquency_label']
+    Quarters         : ['2017Q1', '2017Q2', '2017Q3', '2017Q4', '2018Q1', '2018Q2', '2018Q3', '2018Q4', '2019Q1', '2019Q2', '2019Q3', '2019Q4', '2021Q1', '2021Q2', '2021Q3', '2021Q4', '2022Q1', '2022Q2', '2022Q3', '2022Q4', '2023Q1', '2023Q2', '2023Q3', '2023Q4']
+    Memory           : 2848 MB
+
+    Delinquency rate : 0.137%
+    Label = 1        : 18,810
+    Label = 0        : 13,740,728
+
+  ✓ Cell 1 complete (loaded from cache)
+
+======================================================================
+  CELL 2 · Feature engineering and pre/post COVID split
+======================================================================
+
+  Features used for RQ4 models (Fannie Mae Performance variables):
+    borrower_credit_score  → FICO score (primary risk predictor)
+    original_dti           → DTI ratio
+    original_ltv           → LTV ratio
+    original_interest_rate → loan rate (market pricing signal)
+    original_upb           → unpaid principal balance (loan size)
+    loan_purpose           → P=purchase, C=cash-out refi, N=no cash-out
+
+  Outcome variable:
+    delinquency_label → 1 = delinquent, 0 = current
+
+  Pre-COVID training window  : 2017 Q1 – 2019 Q4
+  Post-COVID evaluation window: 2021 Q1 – 2023 Q4
+  Year 2020 excluded to prevent COVID disruption confounding
+
+  Renamed current_upb → original_upb
+  Renamed current_interest_rate → original_interest_rate
+  ✓ All required columns present
+
+  Imputing missing values with column medians:
+    borrower_credit_score         : no missing values
+    original_dti                  : no missing values
+    original_ltv                  : no missing values
+    original_interest_rate        : no missing values
+    original_upb                  : no missing values
+
+  log_upb created via log1p transform
+  ⚠  loan_purpose not found — skipping encoding
+
+  Final feature set (5 features):
+    borrower_credit_score
+    original_dti
+    original_ltv
+    original_interest_rate
+    log_upb
+
+  Pre-COVID  (2017–2019):    5,994,254 loans
+  Post-COVID (2021–2023):    7,765,284 loans
+  Features              : 5
+
+  Pre-COVID label balance  : 0.064% positive (delinquent)
+  Post-COVID label balance : 0.193% positive (delinquent)
+
+  StandardScaler fitted on pre-COVID data
+  X_pre_s  shape: (5994254, 5)
+  X_post_s shape: (7765284, 5)
+
+  Memory freed — df_all deleted after split
+  N_PRE (pre-COVID rows)  = 5,994,254
+  N_POST (post-COVID rows) = 7,765,284
+  ✓ Cell 2 complete
+
+======================================================================
+  CELL 3 · Train models on pre-COVID data (2017–2019)
+======================================================================
+
+Models trained on pre-COVID Fannie Mae data (2017 Q1–2019 Q4).
+Evaluated on post-COVID data (2021 Q1–2023 Q4) quarter by quarter.
+
+This replicates the real-world scenario where a model trained in
+a stable economic environment is deployed into a post-shock period.
+
+Same model classes as RQ1 (LR, XGBoost, FNN) to enable
+direct comparison of drift patterns across model types.
+
+Class imbalance handling:
+  LR       : class_weight='balanced'
+  XGBoost  : scale_pos_weight = n_negative / n_positive
+  FNN      : class_weight via compute_class_weight
+
+GPU usage:
+  LR       : CPU
+  XGBoost  : GPU via device=cuda + tree_method=hist
+  FNN      : GPU via TF_DEVICE
+
+ Creating 80/20 stratified train/validation split...
+ Pre-COVID train :  4,795,403 rows (positive: 0.064%)
+ Pre-COVID val   :  1,198,851 rows (positive: 0.064%)
+
+ Class imbalance ratio: 1563.6:1 (n_neg=4,792,338 / n_pos=3,065)
+ XGBoost scale_pos_weight: 1563.57
+
+── Logistic Regression — pre-COVID training (CPU) ────────────
+ Training time : 5.1s
+ Validation AUC : 0.5875
+ Coefficients : {'borrower_credit_score': np.float64(-0.2662), 'original_dti': np.float64(0.0911), 'original_ltv': np.float64(-0.1588), 'original_interest_rate': np.float64(0.071), 'log_upb': np.float64(0.1115)}
+
+── XGBoost — pre-COVID training (GPU) ────────────────────────
+ Device : cuda
+ Tree method : hist
+ Subsampled to 2,000,000 rows for GPU training
+ Positives kept : 3,065 (all)
+ Negatives kept : 1,996,935 (sampled)
+ Adjusted spw : 651.53
+ Val subsampled to 500,000 rows for early stopping
+ Training time : 1.2s
+ Best iteration : 22
+ Validation AUC : 0.6037
+ Top features (gain) : [('borrower_credit_score', np.float32(0.30215225)), ('log_upb', np.float32(0.2426827)), ('original_interest_rate', np.float32(0.15667629))]
+
+── FNN — pre-COVID training (GPU) ────────────────────────────
+ Device : /GPU:0
+ Batch size : 2048
+ Max epochs : 50
+ Class weights : {0: 0.5003197812842083, 1: 782.284339314845}
+ Subsampled to 1,000,000 rows for GPU training
+ Val subsampled to 200,000 rows
+ Building FNN on /GPU:0 with 5 input features
+ Training time : 38.0s
+ Epochs run : 11
+ Validation AUC : 0.5837
+
+── Pre-COVID training summary ────────────────────────────────
+
+ Model                        Val AUC   Train time   Device
+ ----------------------------------------------------------
+ Logistic Regression           0.5875        5.1s      CPU
+ XGBoost                       0.6037        1.2s     CUDA
+ FNN                           0.5837       38.0s      GPU
+
+Note on subsampling strategy:
+XGBoost trained on 2,000,000 rows (all positives + sampled negatives)
+FNN trained on 1,000,000 rows (all positives + sampled negatives)
+LR trained on 4,795,403 rows (full training set)
+
+All models evaluated on the full validation set (1,198,851 rows).
+
+Subsampling is applied only during training for computational
+feasibility — evaluation uses the complete held-out set.
+
+ ✓ Cell 3 complete
+
+======================================================================
+  CELL 4 · PSI and KL divergence computation
+======================================================================
+
+  Population Stability Index (PSI):
+    PSI = Σ (Actual% − Expected%) × ln(Actual% / Expected%)
+    Computed on model score distributions per quarter.
+
+    Reference distribution : pre-COVID full panel score distribution
+    Comparison distribution: each post-COVID quarter's score distribution
+
+    Bins     : 10 equal-width bins across [0, 1] score range
+    Epsilon  : 1e-6 added to empty bins to avoid log(0)
+
+    PSI thresholds:
+      PSI < 0.10  → No significant change       (green)
+      0.10–0.25  → Moderate shift — monitor     (amber)
+      PSI > 0.25  → Significant shift — review  (red)
+
+  KL Divergence (supplementary):
+    KL(Q||P) = Σ Q(x) × log(Q(x) / P(x))
+    Asymmetric measure — higher KL = greater shift from training.
+
+  GPU usage:
+    FNN predictions  : GPU via TF_DEVICE + large batch size
+    LR predictions   : CPU (sklearn predict_proba)
+    XGBoost preds    : GPU via device=cuda
+    PSI/KL compute   : CPU (numpy — fast for 10-bin operation)
+
+  Reference: Siddiqi (2006); SR 11-7 model risk guidance.
+
+
+── Computing reference score distributions (pre-COVID full panel) 
+  Pre-COVID panel size: 5,994,254 records
+  Computing reference scores on GPU where possible...
+  LR  reference scores computed  (0s)
+  XGB reference scores computed  (0s)
+  FNN reference scores computed  (2s)
+
+  Reference score distributions (pre-COVID):
+  Model      Mean      Std      Min      Max
+  ------------------------------------------
+  LR       0.4845   0.0840   0.2004   0.8442
+  XGB      0.4849   0.0544   0.2619   0.7020
+  FNN      0.4357   0.0787   0.1804   0.8259
+
+── Quarterly PSI and AUC — post-COVID evaluation ─────────────
+
+  Quarter             n    LR AUC   LR PSI   XGB AUC  XGB PSI   FNN AUC  FNN PSI
+  --------------------------------------------------------------------------------
+  2021Q1      1,413,390    0.5598   0.3034    0.5509   0.0741    0.5639   0.0951  (2s)
+  2021Q2      1,316,215    0.5439   0.1883    0.5455   0.0495    0.5334   0.0617  (2s)
+  2021Q3      1,039,051    0.5784   0.1192    0.5624   0.0396    0.5713   0.0424  (2s)
+  2021Q4      1,013,436    0.5835   0.0806    0.5692   0.0397    0.5683   0.0372  (2s)
+  2022Q1        793,818    0.5614   0.0108    0.5648   0.0191    0.5599   0.0352  (2s)
+  2022Q2        567,613    0.4983   0.0623    0.5083   0.0763    0.4930   0.1093  (2s)
+  2022Q3        377,913    0.5369   0.3387    0.5336   0.5548    0.5260   0.6358  (3s)
+  2022Q4        273,662    0.5693   0.5563    0.5466   0.6330    0.4550   1.2028  (1s)
+  2023Q1        210,810    0.6223   0.7537    0.5497   0.7942    0.5379   1.7910  (1s)
+  2023Q2        276,714    0.6218   0.6844    0.5736   0.6707    0.5198   1.8063  (1s)
+  2023Q3        266,728    0.5901   0.9256    0.5733   0.6907    0.4669   2.5027  (1s)
+  2023Q4        215,934    0.5688   1.2953    0.5511   0.6664    0.4818   3.4636  (1s)
+
+── PSI flag summary by model and quarter ─────────────────────
+
+  Quarter       LR PSI  Flag                     XGB PSI  Flag                     FNN PSI  Flag
+  ----------------------------------------------------------------------------------------------------
+  2021Q1        0.3034  ✗  Review required        0.0741  ✓  No change              0.0951  ✓  No change
+  2021Q2        0.1883  ⚠  Monitor                0.0495  ✓  No change              0.0617  ✓  No change
+  2021Q3        0.1192  ⚠  Monitor                0.0396  ✓  No change              0.0424  ✓  No change
+  2021Q4        0.0806  ✓  No change              0.0397  ✓  No change              0.0372  ✓  No change
+  2022Q1        0.0108  ✓  No change              0.0191  ✓  No change              0.0352  ✓  No change
+  2022Q2        0.0623  ✓  No change              0.0763  ✓  No change              0.1093  ⚠  Monitor
+  2022Q3        0.3387  ✗  Review required        0.5548  ✗  Review required        0.6358  ✗  Review required
+  2022Q4        0.5563  ✗  Review required        0.6330  ✗  Review required        1.2028  ✗  Review required
+  2023Q1        0.7537  ✗  Review required        0.7942  ✗  Review required        1.7910  ✗  Review required
+  2023Q2        0.6844  ✗  Review required        0.6707  ✗  Review required        1.8063  ✗  Review required
+  2023Q3        0.9256  ✗  Review required        0.6907  ✗  Review required        2.5027  ✗  Review required
+  2023Q4        1.2953  ✗  Review required        0.6664  ✗  Review required        3.4636  ✗  Review required
+
+── Aggregate PSI summary across all post-COVID quarters ──────
+
+  Model                       Mean PSI    Max PSI   Monitor quarters   Review quarters
+  ----------------------------------------------------------------------------------
+  Logistic Regression           0.4432     1.2953                  2                 7
+  XGBoost                       0.3590     0.7942                  0                 6
+  FNN                           0.9819     3.4636                  1                 6
+
+── AUC trend — pre-COVID baseline vs post-COVID quarters ─────
+
+  Pre-COVID validation AUC (baseline):
+    LR  : 0.5875
+    XGB : 0.6037
+    FNN : 0.5837
+
+  Post-COVID AUC range:
+    Logistic Regression      : min=0.4983  max=0.6223  mean=0.5695  trend=↑
+    XGBoost                  : min=0.5083  max=0.5736  mean=0.5524  trend=↑
+    FNN                      : min=0.4550  max=0.5713  mean=0.5231  trend=↓
+  ✓ Cell 4 complete
+
+======================================================================
+  CELL 5 · Time-series regression (H₄₀ evaluation)
+======================================================================
+
+  H₄₀: PSI scores are not significantly predictive of subsequent
+        model performance decline.
+
+  Model: AUCₜ₊₁ = β₀ + β₁PSIₜ + ε
+
+  For each model type:
+    - Lag PSI by one quarter (PSIₜ predicts AUCₜ₊₁)
+    - OLS regression with HC3 robust standard errors
+    - Reject H₄₀ if β₁ is statistically significant (p < .05)
+    - Negative β₁ = higher PSI → lower future AUC
+      (PSI is a leading indicator of performance decline)
+    - Positive β₁ = higher PSI → higher future AUC
+      (unexpected direction — would suggest PSI not a useful warning)
+
+  Note: With 12 post-COVID quarters, n=11 lagged observations.
+  Results should be interpreted directionally alongside the
+  PSI flag analysis from Cell 4.
+
+  GPU usage:
+    OLS regression : CPU (statsmodels — matrix algebra, no GPU needed)
+    All heavy compute already completed in Cells 3 and 4.
+
+
+── Logistic Regression — time-series regression ──────────────
+
+  Observations (lagged pairs) : 11
+
+  Quarter t        PSI(t)    AUC(t+1)
+  ------------------------------------
+  2021Q2           0.3034      0.5439
+  2021Q3           0.1883      0.5784
+  2021Q4           0.1192      0.5835
+  2022Q1           0.0806      0.5614
+  2022Q2           0.0108      0.4983
+  2022Q3           0.0623      0.5369
+  2022Q4           0.3387      0.5693
+  2023Q1           0.5563      0.6223
+  2023Q2           0.7537      0.6218
+  2023Q3           0.6844      0.5901
+  2023Q4           0.9256      0.5688
+
+  OLS results (HC3 robust standard errors):
+    β₀ (intercept)  :  +0.544570
+    β₁ (PSI coeff)  :  +0.070692
+    SE(β₁)          :   0.048150
+    t-statistic     :      1.468
+    p-value         :     0.1421  ns
+    R²              :     0.3820
+    Adjusted R²     :     0.3133
+    n observations  : 11
+
+  Decision        : Fail to reject H₄₀ at α = .05
+  Direction       : No significant directional relationship
+
+  Supplementary correlations:
+    Pearson  r = +0.6180  p = 0.0427
+    Spearman ρ = +0.6545  p = 0.0289
+
+── XGBoost — time-series regression ──────────────────────────
+
+  Observations (lagged pairs) : 11
+
+  Quarter t        PSI(t)    AUC(t+1)
+  ------------------------------------
+  2021Q2           0.0741      0.5455
+  2021Q3           0.0495      0.5624
+  2021Q4           0.0396      0.5692
+  2022Q1           0.0397      0.5648
+  2022Q2           0.0191      0.5083
+  2022Q3           0.0763      0.5336
+  2022Q4           0.5548      0.5466
+  2023Q1           0.6330      0.5497
+  2023Q2           0.7942      0.5736
+  2023Q3           0.6707      0.5733
+  2023Q4           0.6907      0.5511
+
+  OLS results (HC3 robust standard errors):
+    β₀ (intercept)  :  +0.545398
+    β₁ (PSI coeff)  :  +0.021640
+    SE(β₁)          :   0.020305
+    t-statistic     :      1.066
+    p-value         :     0.2865  ns
+    R²              :     0.1323
+    Adjusted R²     :     0.0358
+    n observations  : 11
+
+  Decision        : Fail to reject H₄₀ at α = .05
+  Direction       : No significant directional relationship
+
+  Supplementary correlations:
+    Pearson  r = +0.3637  p = 0.2716
+    Spearman ρ = +0.3727  p = 0.2589
+
+── FNN — time-series regression ──────────────────────────────
+
+  Observations (lagged pairs) : 11
+
+  Quarter t        PSI(t)    AUC(t+1)
+  ------------------------------------
+  2021Q2           0.0951      0.5334
+  2021Q3           0.0617      0.5713
+  2021Q4           0.0424      0.5683
+  2022Q1           0.0372      0.5599
+  2022Q2           0.0352      0.4930
+  2022Q3           0.1093      0.5260
+  2022Q4           0.6358      0.4550
+  2023Q1           1.2028      0.5379
+  2023Q2           1.7910      0.5198
+  2023Q3           1.8063      0.4669
+  2023Q4           2.5027      0.4818
+
+  OLS results (HC3 robust standard errors):
+    β₀ (intercept)  :  +0.537478
+    β₁ (PSI coeff)  :  -0.023907
+    SE(β₁)          :   0.009559
+    t-statistic     :     -2.501
+    p-value         :     0.0124  *
+    R²              :     0.2913
+    Adjusted R²     :     0.2125
+    n observations  : 11
+
+  Decision        : Reject H₄₀ at α = .05
+  Direction       : Higher PSI → lower future AUC (PSI predicts decline) ✓
+
+  Supplementary correlations:
+    Pearson  r = -0.5397  p = 0.0866
+    Spearman ρ = -0.5455  p = 0.0827
+
+── H₄₀ verdict summary ───────────────────────────────────────
+
+  Model                             β₁    p-value    Sig       R²               Decision
+  -------------------------------------------------------------------------------------
+  Logistic Regression        +0.070692     0.1421     ns   0.3820     Fail to reject H₄₀
+  XGBoost                    +0.021640     0.2865     ns   0.1323     Fail to reject H₄₀
+  FNN                        -0.023907     0.0124      *   0.2913             Reject H₄₀
+
+  Overall H₄₀ verdict:
+    Models rejecting H₄₀ (p < .05)           : 1/3
+    Models with negative β₁ (PSI → AUC↓)     : 1/3
+
+  Interpretation:
+    A negative β₁ with p < .05 means PSI in quarter t is a
+    statistically significant predictor of AUC decline in
+    quarter t+1 — validating PSI as an early warning indicator
+    under SR 11-7 model risk management requirements.
+
+  Caveat: n=11 quarterly observations provides limited statistical
+  power. The β₁ direction and R² are the primary interpretive
+  focus rather than p-value significance alone.
+
+  SR 11-7 implication:
+    Regardless of statistical significance, the PSI flag analysis
+    in Cell 4 shows that all three models would have triggered
+    mandatory model reviews from 2022Q3 onwards under the 0.25
+    threshold — providing actionable governance signal independent
+    of the regression test.
+
+  ✓ Cell 5 complete
+
+======================================================================
+  CELL 6 · PSI and AUC drift visualisations
+======================================================================
+  → Figure 21 saved: /content/drive/MyDrive/capstone/reports/figures/fig21_psi_trend.png
+  → Figure 22 saved: /content/drive/MyDrive/capstone/reports/figures/fig22_auc_trend.png
+  → Figure 23 saved: /content/drive/MyDrive/capstone/reports/figures/fig23_psi_vs_auc_scatter.png
+  → Figure 24 saved: /content/drive/MyDrive/capstone/reports/figures/fig24_kl_divergence.png
+  ✓ Cell 6 complete
+
+======================================================================
+  CELL 7 · Save RQ4 metrics for MRRS notebook
+======================================================================
+  → RQ4 metrics saved: /content/drive/MyDrive/capstone/reports/rq4_metrics.json
+  → Quarterly PSI/AUC table saved: /content/drive/MyDrive/capstone/reports/table4_quarterly_psi_auc.csv
+  ✓ Cell 7 complete
+
+======================================================================
+  CELL 8 · RQ4 readiness verdict
+======================================================================
+
+  ✓  Fannie Mae data loaded (real or synthetic)
+       Pre-COVID: 5,994,254 rows  Post-COVID: 7,765,284 rows
+  ✓  Pre-COVID training set available
+  ✓  Post-COVID evaluation set available
+  ✓  All three models trained on pre-COVID data
+  ✓  Quarterly PSI computed for all post-COVID quarters
+  ✓  KL divergence computed
+  ✓  Time-series regression run for H₄₀
+  ✓  Figures 21–24 saved
+  ✓  RQ4 metrics JSON saved for MRRS notebook
+
+  Result: 9/9 checks passed  ✓  Ready to proceed to notebook 06
+
+  Next step: notebook 06_rq5_mrrs_scoring.ipynb

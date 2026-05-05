@@ -1,0 +1,68 @@
+{
+  "Logistic Regression": {
+    "min_dir": 0.7497721354166668,
+    "mean_dir": 0.9447530826621493,
+    "n_adverse_impact": 1,
+    "max_abs_dtpr": 0.1539153915391539,
+    "max_abs_dfpr": 0.15131624404062743,
+    "max_abs_dpd": 0.1616546096904441
+  },
+  "XGBoost": {
+    "min_dir": 0.7938034188034189,
+    "mean_dir": 0.916224925420766,
+    "n_adverse_impact": 1,
+    "max_abs_dtpr": 0.0882962082616029,
+    "max_abs_dfpr": 0.19991906110886282,
+    "max_abs_dpd": 0.14611372812920587
+  },
+  "FNN": {
+    "min_dir": 0.8303995529477508,
+    "mean_dir": 0.9009154139501921,
+    "n_adverse_impact": 0,
+    "max_abs_dtpr": 0.05286355687368771,
+    "max_abs_dfpr": 0.12161068393363011,
+    "max_abs_dpd": 0.13615971287572903
+  },
+  "pricing_ols": {
+    "r_squared": 0.3290189936272466,
+    "adj_r_squared": 0.3191768973754461,
+    "n_obs": 4359,
+    "group_results": [
+      {
+        "group": "Black",
+        "beta": 0.10400720472594344,
+        "se": 0.06006047981898818,
+        "p": 0.08332559122614558,
+        "significant_positive": false
+      },
+      {
+        "group": "Asian",
+        "beta": 0.07136421338930686,
+        "se": 0.05661267437276236,
+        "p": 0.20746397560652075,
+        "significant_positive": false
+      },
+      {
+        "group": "AI/AN",
+        "beta": -0.1218583290571182,
+        "se": 0.08940158479848419,
+        "p": 0.1728685195444173,
+        "significant_positive": false
+      },
+      {
+        "group": "NH/PI",
+        "beta": 0.16977611406746154,
+        "se": 0.16959255705756135,
+        "p": 0.3167870015589783,
+        "significant_positive": false
+      },
+      {
+        "group": "Hispanic/Latino",
+        "beta": 0.11203131720434292,
+        "se": 0.05167426280652231,
+        "p": 0.030156455279059306,
+        "significant_positive": true
+      }
+    ]
+  }
+}

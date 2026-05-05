@@ -1,0 +1,254 @@
+
+======================================================================
+  CELL 1 · Load data and merge model predictions
+======================================================================
+  Full sample loaded: 9,995 rows
+  Test predictions loaded: 1,999 rows
+
+  RQ2a access analysis dataset: 9,995 rows
+  (Restricted to standard race codes 1–5)
+  RQ2b pricing analysis dataset: 4,427 rows
+  (Originated loans only, rate_spread > 0, standard race codes)
+
+  RQ2a group sizes (must be ≥ 200 each per synopsis constraint):
+    White       :  7,432  ✓
+    Black       :  1,218  ✓
+    Asian       :    803  ✓
+    AI/AN       :    319  ✓
+    NH/PI       :    223  ✓
+
+  RQ2b group sizes:
+    White       :  3,541
+    Black       :    439
+    Asian       :    286
+    AI/AN       :    104
+    NH/PI       :     57
+  ✓ Cell 1 complete
+
+======================================================================
+  CELL 2 · Fairness metric helper functions
+======================================================================
+
+  Metrics implemented:
+  ────────────────────────────────────────────────────────────────
+  1. Disparate Impact Ratio (DIR)
+     DIR = P(Ŷ=1 | A=protected) / P(Ŷ=1 | A=reference)
+     Threshold: DIR < 0.80 signals adverse impact (4/5ths rule)
+     Reference: ECOA, CFPB Examination Procedures
+
+  2. Demographic Parity Difference (DPD)
+     DPD = P(Ŷ=1 | A=protected) − P(Ŷ=1 | A=reference)
+     Ideal: DPD = 0
+
+  3. Equalized Odds
+     ΔTPR = TPR(protected) − TPR(reference)
+     ΔFPR = FPR(protected) − FPR(reference)
+     Ideal: ΔTPR = 0, ΔFPR = 0
+     Reference: Hardt et al. (2016)
+
+  4. Chi-square test
+     Tests whether approval rate differences are statistically
+     significant at α = .05
+
+  Reference group: White applicants (largest group in HMDA 2024)
+
+  ✓ Cell 2 complete — fairness metric helpers defined
+
+======================================================================
+  CELL 3 · RQ2a — Raw approval rates (pre-model baseline)
+======================================================================
+
+  Before evaluating model-induced bias, we establish the baseline
+  approval rate disparities present in the raw HMDA data.
+  These rates reflect lender decisions, not model predictions.
+  Comparing raw rates to model-predicted rates isolates whether
+  the models amplify, preserve, or reduce existing disparities.
+
+  Race group            n   Approval rate    DIR vs White   4/5ths flag
+  --------------------------------------------------------------------
+  White             7,432           76.6%     (reference)              
+  Asian               803           72.1%           0.942         ✓  OK
+  Black             1,218           60.3%           0.787  ⚠  Adverse impact
+  AI/AN               319           55.2%           0.721  ⚠  Adverse impact
+  NH/PI               223           51.6%           0.673  ⚠  Adverse impact
+
+  Overall chi-square test (all groups):
+    χ²(4) = 252.075,  p = 0.000000
+    Reject H₂₀ₐ at α = .05 — approval rates differ significantly across race groups
+
+  → Figure 11 saved: /content/drive/MyDrive/capstone/reports/figures/fig11_raw_approval_rates.png
+  ✓ Cell 3 complete
+
+======================================================================
+  CELL 4 · RQ2a — Model fairness metrics (DIR, Equalized Odds)
+======================================================================
+
+  For each model, we compute:
+    DIR    = approval rate (group) / approval rate (White)
+    DPD    = approval rate (group) − approval rate (White)
+    ΔTPR   = TPR (group) − TPR (White)
+    ΔFPR   = FPR (group) − FPR (White)
+    chi²   = test of approval rate equality vs White
+
+  Working dataset: test set predictions from notebook 02
+  (df_pred contains lr_pred, xgb_pred, fnn_pred columns)
+
+  Test set fairness records: 1,999
+  NOTE: Model-level DIR and Equalized Odds are computed on the test set only
+  (20% hold-out, N ≈ 2,000) because model predictions exist only for those
+  records. Raw baseline rates in Cell 3 use the full sample (N ≈ 10,000).
+  This difference in population N is by design and is documented here for
+  transparency and regulatory auditability.
+
+── Logistic Regression — fairness metrics ────────────────────
+
+  Group               n    Appr%      DIR      DPD     ΔTPR     ΔFPR      chi2         p                Flag
+  ------------------------------------------------------------------------------------------------------
+  White           1,486    64.6%    1.000   +0.000   +0.000   +0.000      0.00    1.0000               (ref)
+  AI/AN              64    48.4%    0.750   -0.162   -0.061   -0.135      6.27    0.0123   ⚠  Adverse impact
+  Asian             142    78.2%    1.210   +0.136   +0.154   +0.151     10.00    0.0016               ✓  OK
+  Black             258    54.3%    0.840   -0.103   -0.063   -0.045      9.65    0.0019               ✓  OK
+  NH/PI              49    63.3%    0.979   -0.013   +0.130   -0.052      0.00    0.9674               ✓  OK
+
+  Summary: 1 group(s) with adverse impact, 3 group(s) with significant chi-square
+
+── XGBoost — fairness metrics ────────────────────────────────
+
+  Group               n    Appr%      DIR      DPD     ΔTPR     ΔFPR      chi2         p                Flag
+  ------------------------------------------------------------------------------------------------------
+  White           1,486    70.9%    1.000   +0.000   +0.000   +0.000      0.00    1.0000               (ref)
+  AI/AN              64    56.2%    0.794   -0.146   +0.066   -0.200      5.59    0.0181   ⚠  Adverse impact
+  Asian             142    78.2%    1.103   +0.073   +0.088   +0.121      3.05    0.0809               ✓  OK
+  Black             258    62.0%    0.875   -0.088   +0.003   -0.064      7.71    0.0055               ✓  OK
+  NH/PI              49    63.3%    0.893   -0.076   +0.070   -0.057      0.98    0.3226               ✓  OK
+
+  Summary: 1 group(s) with adverse impact, 2 group(s) with significant chi-square
+
+── FNN — fairness metrics ────────────────────────────────────
+
+  Group               n    Appr%      DIR      DPD     ΔTPR     ΔFPR      chi2         p                Flag
+  ------------------------------------------------------------------------------------------------------
+  White           1,486    80.3%    1.000   +0.000   +0.000   +0.000      0.00    1.0000               (ref)
+  AI/AN              64    68.8%    0.856   -0.115   +0.041   -0.122      4.37    0.0365               ✓  OK
+  Asian             142    84.5%    1.053   +0.042   +0.047   +0.107      1.22    0.2686               ✓  OK
+  Black             258    66.7%    0.830   -0.136   -0.053   -0.118     23.17    0.0000               ✓  OK
+  NH/PI              49    69.4%    0.864   -0.109   -0.011   -0.050      2.86    0.0906               ✓  OK
+
+  Summary: 0 group(s) with adverse impact, 2 group(s) with significant chi-square
+
+── Cross-model fairness summary (H₂₀ₐ evaluation) ────────────
+
+  Model                      Adverse impact groups    Sig diff groups    Min DIR
+  ------------------------------------------------------------------------------
+  Logistic Regression                            1                  3      0.750
+  XGBoost                                        1                  2      0.794
+  FNN                                            0                  2      0.830
+
+  H₂₀ₐ verdict:
+  If any model shows DIR < 0.80 for any group, H₂₀ₐ is rejected
+  for that model-group combination.
+
+  → Figure 12 saved: /content/drive/MyDrive/capstone/reports/figures/fig12_dir_by_model.png
+  → Figure 13 saved: /content/drive/MyDrive/capstone/reports/figures/fig13_equalized_odds.png
+  ✓ Cell 4 complete
+
+======================================================================
+  CELL 5 · RQ2b — Pricing discrimination OLS regression
+======================================================================
+
+  Methodology follows Bartlett et al. (2022):
+  Consumer lending discrimination in the FinTech era.
+  Journal of Financial Economics, 143(1), 30–56.
+
+  Model:
+    rate_spread = β₀
+                + β₁(FICO proxy: dti_numeric)
+                + β₂(LTV)
+                + β₃(log_income)
+                + β₄(log_loan_amount)
+                + β₅(loan_type)
+                + β₆(loan_purpose)
+                + β₇(lien_status)
+                + β₈(state_code)
+                + γ₁(Black)
+                + γ₂(Asian)
+                + γ₃(AI/AN)
+                + γ₄(NH/PI)
+                + γ₅(Hispanic/Latino)
+                + ε
+
+  H₂₀ᵦ: γ = 0 for all protected groups (no pricing discrimination)
+
+  Pricing analysis sample: 4,427 originated loans
+  State fixed effects included: 51 dummies
+  OLS sample after dropping NA rows: 4,359
+  Number of predictors (incl. const): 64
+
+── OLS regression results — full model ───────────────────────
+
+  Dependent variable: rate_spread (basis points above APOR)
+  N = 4,359
+  R² = 0.3290
+  Adjusted R² = 0.3192
+  F-statistic = 19.25  (p = 0.000000)
+
+── Protected group coefficients — H₂₀ᵦ evaluation ────────────
+
+  Each coefficient below represents the unexplained rate spread
+  differential (in basis points above APOR) for that group relative
+  to White applicants, after controlling for all legitimate risk factors.
+
+  Group indicator         β (bps)         SE     t-stat    p-value    Sig               Interpretation
+  ------------------------------------------------------------------------------------------------
+  Black                   +0.1040     0.0601      1.732     0.0833     ns    No significant difference
+  Asian                   +0.0714     0.0566      1.261     0.2075     ns    No significant difference
+  AI/AN                   -0.1219     0.0894     -1.363     0.1729     ns    No significant difference
+  NH/PI                   +0.1698     0.1696      1.001     0.3168     ns    No significant difference
+  Hispanic/Latino         +0.1120     0.0517      2.168     0.0302      * Evidence of pricing discrim.
+
+  Significance codes: *** p<.001  ** p<.01  * p<.05  ns p≥.05
+
+── Key risk factor coefficients (selected) ───────────────────
+
+  Variable                        β         SE          t          p
+  -------------------------------------------------------
+  dti_imputed               +0.0088     0.0018      4.917     0.0000
+  ltv_imputed               +0.0083     0.0010      8.498     0.0000
+  log_income                +0.1212     0.0348      3.481     0.0005
+  log_loan_amount           -0.5421     0.0435    -12.450     0.0000
+
+── H₂₀ᵦ verdict ──────────────────────────────────────────────
+
+  Reject H₂₀ᵦ for: Hispanic/Latino
+  Evidence of statistically significant pricing differentials
+  after controlling for legitimate risk factors.
+  Note: OLS uses HC3 heteroscedasticity-robust standard errors.
+
+  → Figure 14 saved: /content/drive/MyDrive/capstone/reports/figures/fig14_pricing_discrimination.png
+  ✓ Cell 5 complete
+
+======================================================================
+  CELL 6 · Save fairness outputs for MRRS notebook
+======================================================================
+  → RQ2 metrics saved: /content/drive/MyDrive/capstone/reports/rq2_metrics.json
+  → DIR table saved: /content/drive/MyDrive/capstone/reports/table3_dir_by_model.csv
+  ✓ Cell 6 complete
+
+======================================================================
+  CELL 7 · RQ2 readiness verdict
+======================================================================
+
+  ✓  RQ2a — raw approval rates computed
+  ✓  RQ2a — DIR computed for all three models
+  ✓  RQ2a — chi-square tests run
+  ✓  RQ2b — OLS regression fitted
+  ✓  RQ2b — protected group coefficients extracted
+  ✓  RQ2b — HC3 robust standard errors used
+       HC3 is the default for heteroscedastic OLS in fair lending analysis
+  ✓  Figures 11–14 saved
+  ✓  RQ2 metrics JSON saved for MRRS notebook
+  ✓  DIR table CSV saved for interim report
+
+  Result: 9/9 checks passed  ✓  Ready to proceed to notebook 04
+
+  Next step: notebook 04_rq3_shap_explainability.ipynb

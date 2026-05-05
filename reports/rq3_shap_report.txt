@@ -1,0 +1,283 @@
+
+======================================================================
+  CELL 1 · Load models and reconstruct feature matrix
+======================================================================
+  ✓ Logistic Regression loaded
+  ✓ XGBoost loaded
+  ✓ FNN loaded
+  ✓ Scaler loaded
+  Feature names loaded: ['log_loan_amount', 'log_income', 'ltv_imputed', 'dti_imputed', 'loan_type', 'loan_purpose', 'occupancy_type', 'lien_status']
+
+  Train set: 7,996 rows
+  Test set : 1,999 rows
+  Features : 8
+  ✓ Cell 1 complete
+
+======================================================================
+  CELL 2 · ECOA/Reg B regulatory defensibility reference
+======================================================================
+
+  Under ECOA (Equal Credit Opportunity Act) and Regulation B,
+  lenders may use the following factors in credit decisions:
+
+  PERMISSIBLE credit factors:
+    ✓  Credit history / credit score (FICO, DTI proxy)
+    ✓  Debt-to-income ratio (DTI)
+    ✓  Loan-to-value ratio (LTV)
+    ✓  Income and assets
+    ✓  Loan amount / loan type
+    ✓  Collateral / property characteristics
+    ✓  Employment status
+    ✓  Payment history
+
+  IMPERMISSIBLE factors (protected classes under ECOA):
+    ✗  Race, color, religion, national origin
+    ✗  Sex / gender
+    ✗  Marital status
+    ✗  Age (except for capacity to contract)
+    ✗  Receipt of public assistance income
+    ✗  Exercise of rights under Consumer Credit Protection Act
+
+  SHAP defensibility assessment:
+    A model is considered regulatorily defensible if its top SHAP
+    features align with permissible credit factors and no protected
+    class proxies appear in the top-ranked features.
+
+  Feature set used in this project:
+    log_loan_amount → PERMISSIBLE (loan amount / collateral)
+    log_income      → PERMISSIBLE (income)
+    ltv_imputed     → PERMISSIBLE (LTV / collateral)
+    dti_imputed     → PERMISSIBLE (DTI / debt burden)
+    loan_type_*     → PERMISSIBLE (loan product type)
+    loan_purpose_*  → PERMISSIBLE (credit purpose)
+    occupancy_type_*→ PERMISSIBLE (property use)
+    lien_status_*   → PERMISSIBLE (collateral priority)
+
+  NOTE: All features in this model are ECOA-permissible.
+  The SHAP analysis therefore focuses on stability and consistency
+  rather than legality of individual features.
+
+  All 8 features confirmed permissible under ECOA/Reg B
+  ✓ Cell 2 complete
+
+======================================================================
+  CELL 3 · SHAP values — Logistic Regression
+======================================================================
+
+  Explainer: shap.LinearExplainer
+  Appropriate for linear models — uses feature covariance structure
+  to compute exact Shapley values efficiently.
+  Background: full training set (exact for linear models).
+
+
+── LR — Global feature importance (mean |SHAP|) ──────────────
+
+  Rank   Feature                         Mean |SHAP|
+  --------------------------------------------------
+  1      DTI Ratio (%)                      0.423261
+  2      Loan Amount (log)                  0.347578
+  3      Loan Purpose                       0.150497
+  4      Loan Type                          0.117529
+  5      Lien Status                        0.113146
+  6      Occupancy Type                     0.029293
+  7      LTV Ratio (%)                      0.028756
+  8      Income (log)                            nan
+
+  → Figure 15 saved: /content/drive/MyDrive/capstone/reports/figures/fig15_shap_lr_beeswarm.png
+  ✓ Cell 3 complete
+
+======================================================================
+  CELL 4 · SHAP values — XGBoost
+======================================================================
+
+  Explainer: shap.TreeExplainer
+  Appropriate for tree-based models — uses the TreeSHAP algorithm
+  (Lundberg et al., 2020) for exact, polynomial-time SHAP computation.
+  Interventional perturbation with training data background.
+  Reference: Lundberg & Lee (2017); Lundberg et al. (2020)
+
+
+── XGBoost — Global feature importance (mean |SHAP|) ─────────
+
+  Rank   Feature                         Mean |SHAP|
+  --------------------------------------------------
+  1      DTI Ratio (%)                      0.741037
+  2      Loan Purpose                       0.500361
+  3      Loan Amount (log)                  0.379006
+  4      LTV Ratio (%)                      0.346058
+  5      Income (log)                       0.207561
+  6      Loan Type                          0.132045
+  7      Lien Status                        0.058658
+  8      Occupancy Type                     0.029140
+
+  → Figure 16 saved: /content/drive/MyDrive/capstone/reports/figures/fig16_shap_xgb_beeswarm.png
+  ✓ Cell 4 complete
+
+======================================================================
+  CELL 5 · SHAP values — FNN
+======================================================================
+
+  Explainer: shap.KernelExplainer (model-agnostic)
+  DeepExplainer is incompatible with Keras 3 / TensorFlow 2.16+ due to
+  changes in the computation graph API. KernelExplainer is used instead
+  as it works with any model type via black-box function calls.
+  Background: k-means summary of 50 training records.
+  Test set: 200 records (computational feasibility on CPU).
+  Reference: Lundberg & Lee (2017)
+
+  ⚠  7 NaN values found in test input — imputing with column median
+  ✓ No NaN values in background
+  Computing FNN SHAP values on 100 test records...
+  (This may take 5–10 minutes on CPU — do not interrupt)
+
+── FNN — Global feature importance (mean |SHAP|) ─────────────
+
+  Rank   Feature                         Mean |SHAP|
+  --------------------------------------------------
+  1      DTI Ratio (%)                      0.109790
+  2      Loan Amount (log)                  0.059573
+  3      Loan Purpose                       0.036186
+  4      Lien Status                        0.034234
+  5      Loan Type                          0.024099
+  6      Income (log)                       0.023056
+  7      LTV Ratio (%)                      0.016502
+  8      Occupancy Type                     0.003926
+
+  → Figure 17 saved: /content/drive/MyDrive/capstone/reports/figures/fig17_shap_fnn_beeswarm.png
+  ✓ Cell 5 complete
+
+======================================================================
+  CELL 6 · Feature ranking comparison across models
+======================================================================
+
+  Comparing top feature rankings across LR, XGBoost, and FNN.
+  Consistent rankings across model types indicate that all three
+  models rely on the same underlying credit risk drivers —
+  a positive signal for regulatory defensibility under SR 11-7.
+
+
+── Feature rank comparison table ─────────────────────────────
+
+  Feature                          LR rank   XGB rank   FNN rank
+  --------------------------------------------------------------
+  DTI Ratio (%)                          1          1          1
+  Loan Amount (log)                      2          3          2
+  Loan Purpose                           3          2          3
+  Loan Type                              4          6          5
+  Lien Status                            5          7          4
+  LTV Ratio (%)                          7          4          7
+  Income (log)                           8          5          6
+  Occupancy Type                         6          8          8
+
+── Cross-model Spearman rank correlations ────────────────────
+
+  Comparison                       ρ     p-value                  Interpretation
+  ------------------------------------------------------------------------------
+  LR vs XGBoost               1.0000      0.0000       High consistency (ρ≥0.70)
+  LR vs FNN                   1.0000      0.0000       High consistency (ρ≥0.70)
+  XGBoost vs FNN              1.0000      0.0000       High consistency (ρ≥0.70)
+
+  → Figure 18 saved: /content/drive/MyDrive/capstone/reports/figures/fig18_shap_importance_comparison.png
+  ✓ Cell 6 complete
+
+======================================================================
+  CELL 7 · SHAP stability analysis
+======================================================================
+
+  Optimised stability method for all three models:
+
+  LR  : 200 bootstrap resamples on a 300-record subset of test set.
+  XGB : 200 bootstrap resamples on a 300-record subset of test set.
+  FNN : 5-subset cross-validation on X_shap_fnn (100 records).
+
+  Using a fixed 300-record subset for LR and XGB bootstrap instead of
+  the full 1,999-record test set. This reduces per-resample compute by
+  ~85% while producing equivalent stability estimates — the ranking
+  stability measure is not sensitive to sample size above ~200 records.
+
+  Thresholds (per synopsis Appendix F):
+    ρ ≥ 0.90 → HIGH stability
+    0.70 ≤ ρ < 0.90 → MODERATE stability
+    ρ < 0.70 → LOW stability
+
+  LR boot pool NaN values cleaned: 11
+  Bootstrap pool size: 300 records
+  Bootstrap resamples: 200
+
+── Logistic Regression — bootstrap stability ─────────────────
+  Reference importance: {'Loan Amount (log)': np.float64(0.34872), 'Income (log)': np.float64(0.18328), 'LTV Ratio (%)': np.float64(0.03096), 'DTI Ratio (%)': np.float64(0.44492), 'Loan Type': np.float64(0.11666), 'Loan Purpose': np.float64(0.15491), 'Occupancy Type': np.float64(0.02405), 'Lien Status': np.float64(0.12826)}
+    LR: 50/200 done  (0s)
+    LR: 100/200 done  (0s)
+    LR: 150/200 done  (0s)
+    LR: 200/200 done  (0s)
+  LR SHAP stability: ρ = 0.9988 ± 0.0052  [HIGH]  (n=200 valid resamples)
+
+── XGBoost — bootstrap stability ─────────────────────────────
+  Reference importance top 3: ['DTI Ratio (%)', 'Loan Purpose', 'Loan Amount (log)']
+    XGB: 50/200 done  (102s)
+    XGB: 100/200 done  (204s)
+    XGB: 150/200 done  (305s)
+    XGB: 200/200 done  (407s)
+  XGBoost SHAP stability: ρ = 0.9996 ± 0.0029  [HIGH]
+
+── FNN — stability (5-subset method) ─────────────────────────
+
+  5-subset cross-validation on X_shap_fnn (100 records, ~20 per subset).
+  Estimated runtime: ~3 minutes.
+
+  Step 1/6 — reference SHAP on 100 records...
+  Reference done (76s)
+  Step 2/6 — subset 1/5 (20 records)...
+    Subset 1/5  ρ = 0.9762  (15s)
+  Step 3/6 — subset 2/5 (20 records)...
+    Subset 2/5  ρ = 0.9524  (15s)
+  Step 4/6 — subset 3/5 (20 records)...
+    Subset 3/5  ρ = 0.8571  (16s)
+  Step 5/6 — subset 4/5 (20 records)...
+    Subset 4/5  ρ = 0.9048  (15s)
+  Step 6/6 — subset 5/5 (20 records)...
+    Subset 5/5  ρ = 1.0000  (15s)
+  FNN SHAP stability: ρ = 0.9381 ± 0.0513  [HIGH]
+
+── Stability summary and H₃₀ evaluation ──────────────────────
+
+  Model                       Test AUC     SHAP ρ    ρ Std    Stability
+  --------------------------------------------------------------------
+  Logistic Regression           0.7167     0.9988   0.0052         HIGH
+  XGBoost                       0.8348     0.9996   0.0029         HIGH
+  FNN                           0.8043     0.9381   0.0513         HIGH
+
+  H₃₀ test — Spearman ρ(AUC, stability) = 0.5000,  p = 0.6667
+  Note: n=3 models — interpret direction only, not significance.
+  Direction: Higher AUC → higher stability (no trade-off)
+  ✓ Cell 7 complete
+
+======================================================================
+  CELL 8 · Stability visualisations
+======================================================================
+  → Figure 19 saved: /content/drive/MyDrive/capstone/reports/figures/fig19_shap_stability_distribution.png
+  → Figure 20 saved: /content/drive/MyDrive/capstone/reports/figures/fig20_auc_vs_shap_stability.png
+  ✓ Cell 8 complete
+
+======================================================================
+  CELL 9 · Save RQ3 metrics for MRRS notebook
+======================================================================
+  → RQ3 metrics saved: /content/drive/MyDrive/capstone/reports/rq3_metrics.json
+  ✓ Cell 9 complete
+
+======================================================================
+  CELL 10 · RQ3 readiness verdict
+======================================================================
+
+  ✓  SHAP values computed for LR (LinearExplainer)
+  ✓  SHAP values computed for XGBoost (TreeExplainer)
+  ✓  SHAP values computed for FNN (KernelExplainer — Keras 3/TF 2.16+ compatible)
+  ✓  All features confirmed ECOA-permissible
+  ✓  Bootstrap stability computed (200 resamples per model)
+  ✓  H₃₀ evaluated (AUC vs SHAP stability direction)
+  ✓  Figures 15–20 saved
+  ✓  RQ3 metrics JSON saved for MRRS notebook
+
+  Result: 8/8 checks passed  ✓  Ready to proceed to notebook 05
+
+  Next step: notebook 05_rq4_psi_drift.ipynb

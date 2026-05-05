@@ -1,0 +1,10 @@
+Metric,Logistic Regression,XGBoost,FNN
+AUC-ROC (CV 5-fold),0.7437,0.8390,0.8246
+AUC-ROC (test),0.7167,0.8348,0.8043
+Gini coefficient,0.4334,0.6697,0.6087
+KS statistic,0.3553,0.5180,0.4695
+Accuracy,0.7019,0.7889,0.8049
+Weighted F1,0.7136,0.7926,0.7979
+Precision,0.8390,0.8728,0.8420
+Recall,0.7320,0.8321,0.9020
+Brier score,0.2057,0.1494,0.1557

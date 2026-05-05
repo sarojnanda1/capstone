@@ -1,0 +1,43 @@
+{
+  "lr": {
+    "shap_stability_mean_rho": 0.9988095238095238,
+    "shap_stability_std_rho": 0.005189165408976975,
+    "shap_stability_label": "HIGH",
+    "top_features": [
+      "DTI Ratio (%)",
+      "Loan Amount (log)",
+      "Loan Purpose",
+      "Loan Type"
+    ],
+    "all_ecoa_permissible": true
+  },
+  "xgb": {
+    "shap_stability_mean_rho": 0.999642857142857,
+    "shap_stability_std_rho": 0.002894106138367424,
+    "shap_stability_label": "HIGH",
+    "top_features": [
+      "DTI Ratio (%)",
+      "Loan Purpose",
+      "Loan Amount (log)",
+      "LTV Ratio (%)"
+    ],
+    "all_ecoa_permissible": true
+  },
+  "fnn": {
+    "shap_stability_mean_rho": 0.9380952380952381,
+    "shap_stability_std_rho": 0.051287283877471466,
+    "shap_stability_label": "HIGH",
+    "top_features": [
+      "DTI Ratio (%)",
+      "Loan Amount (log)",
+      "Loan Purpose",
+      "Lien Status"
+    ],
+    "all_ecoa_permissible": true
+  },
+  "h3_test": {
+    "spearman_rho_auc_vs_stability": 0.5,
+    "p_value": 0.6666666666666667,
+    "note": "n=3; interpret direction only \u2014 insufficient power for significance"
+  }
+}

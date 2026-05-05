@@ -1,0 +1,362 @@
+
+======================================================================
+  CELL 1 · Load sample & feature engineering
+======================================================================
+  Loaded sample: 9,995 rows × 29 columns
+  Label distribution:
+    Denied (0): 2,700 (27.0%)
+    Originated (1): 7,295 (73.0%)
+
+── Feature set ───────────────────────────────────────────────
+
+  Feature set rationale (documented for SR 11-7 (replaced by SR 26-2) model governance):
+  ─────────────────────────────────────────────────────────────────
+  All features are permissible credit risk factors under ECOA/Reg B.
+  Protected class variables (race, ethnicity, sex) are EXCLUDED from
+  the model feature set — they appear only in the RQ2 fairness analysis.
+
+  NUMERIC features (continuous):
+    loan_amount   — mortgage size; log-transformed (right-skewed)
+    income        — applicant annual income; log-transformed
+    ltv_capped    — combined LTV ratio, capped at 105%; untransformed
+    dti_numeric   — debt-to-income ratio (ordinal mapped); imputed median
+    rate_spread   — pricing signal for RQ2b; included here as a feature
+                    only for originated loans; will be NaN for denied apps
+                    → EXCLUDED from RQ1 model features (not available at
+                    decision time — only known post-origination)
+
+  CATEGORICAL features (one-hot encoded):
+    loan_type     — conventional / FHA / VA / RHS
+    loan_purpose  — purchase / refinance / cash-out refi / etc.
+    occupancy_type — primary / secondary / investment
+    lien_status   — first lien / subordinate lien
+
+  NOTE: rate_spread excluded from RQ1 features because it is a post-
+  decision outcome variable, not a pre-decision input. Including it
+  would constitute target leakage.
+
+  DTI median imputation value: 41.0%
+  DTI records imputed: 814 (8.1%)
+  LTV median imputation value: 79.3%
+  Income median imputation value: 104 ($000s)
+
+  Imputation summary (SR 11-7 (replaced by SR 26-2) documentation):
+    • DTI: median imputation applied to missing values
+    • LTV: median imputation applied to missing values
+    • Income: median imputation applied to zero/negative values
+    • Categorical features: mode imputation applied to missing values
+  All imputations performed prior to train/test split to ensure consistency.
+
+
+  Numeric features  : ['log_loan_amount', 'log_income', 'ltv_imputed', 'dti_imputed']
+  Categorical cols  : ['loan_type', 'loan_purpose', 'occupancy_type', 'lien_status']
+
+  Final feature matrix: 9,995 rows × 8 features
+  Class balance — label=1: 73.0%  label=0: 27.0%
+
+  Train set : 7,996 rows  (label=1: 73.0%)
+  Test set  : 1,999 rows   (label=1: 73.0%)
+
+  Feature names saved: /content/drive/MyDrive/capstone/models/feature_names.json
+  ✓ Cell 1 complete
+
+======================================================================
+  CELL 2 · DeLong AUC comparison helper
+======================================================================
+
+  DeLong et al. (1988) nonparametric AUC comparison.
+  Reference: DeLong, E.R., DeLong, D.M., & Clarke-Pearson, D.L. (1988).
+  Comparing the areas under two or more correlated ROC curves: A
+  nonparametric approach. Biometrics, 44(3), 837-845.
+
+  Implementation follows the structural components method.
+  H₁₀: AUC(model_A) = AUC(model_B)
+  Reject if p < 0.05.
+
+  Documented for model comparison governance under
+  SR 11-7 (replaced by SR 26-2).
+
+  ✓ DeLong test, McNemar test, Gini, and KS helpers defined
+
+======================================================================
+  CELL 3 · Model 1 — Logistic Regression
+======================================================================
+
+  Logistic Regression is the SR 11-7 (replaced by SR 26-2) regulatory baseline model.
+  Its coefficients are directly interpretable and auditable, making
+  it the reference point for the accuracy-interpretability trade-off
+  examined in RQ3 (SHAP explainability).
+
+  Configuration:
+    Solver      : lbfgs (efficient for medium-sized datasets)
+    Regularization: L2 (Ridge), C=1.0 (default)
+    class_weight: balanced (corrects for 2.94:1 imbalance)
+    max_iter    : 1000
+    CV          : 5-fold stratified
+
+  H₁₀ reference: LR is the null model. XGBoost and FNN must
+  demonstrate statistically significant AUC improvement over LR.
+
+
+── Logistic Regression results ───────────────────────────────
+  Training time    : 2.4s
+  CV AUC (5-fold)  : 0.7437
+  Test AUC         : 0.7167
+  Gini coefficient : 0.4334
+  KS statistic     : 0.3553
+  Test accuracy    : 0.7019
+  Weighted F1      : 0.7136
+  Brier score      : 0.2057  (lower = better)
+  Precision        : 0.8390
+  Recall           : 0.7320
+
+  Confusion matrix (test set):
+                       Predicted 0  Predicted 1
+  Actual 0                    335         205
+  Actual 1                    391       1,068
+
+  Classification report:
+               precision    recall  f1-score   support
+
+    Denied(0)       0.46      0.62      0.53       540
+Originated(1)       0.84      0.73      0.78      1459
+
+     accuracy                           0.70      1999
+    macro avg       0.65      0.68      0.66      1999
+ weighted avg       0.74      0.70      0.71      1999
+
+  → Model saved: /content/drive/MyDrive/capstone/models/lr_model.pkl
+  ✓ Cell 3 complete
+
+======================================================================
+  CELL 4 · Model 2 — XGBoost
+======================================================================
+
+  XGBoost (gradient-boosted ensemble) is the primary ML challenger model.
+  It typically outperforms logistic regression on tabular credit data
+  (Baesens et al., 2003; Kvamme et al., 2018) but at the cost of
+  reduced interpretability — the core accuracy-fairness-explainability
+  trade-off that motivates the MRRS framework.
+
+  Under SR 11-7 (replaced by SR 26-2), XGBoost must demonstrate
+  statistically significant improvement over the LR baseline while
+  maintaining explainability and fairness controls.
+
+  Configuration:
+    n_estimators    : 300
+    max_depth       : 4  (shallow trees reduce overfitting)
+    learning_rate   : 0.05
+    subsample       : 0.8  (stochastic gradient boosting)
+    colsample_bytree: 0.8
+    scale_pos_weight: ratio of negative/positive class
+                      (XGBoost's built-in imbalance correction)
+    eval_metric     : auc
+    early_stopping  : 20 rounds on validation fold
+    CV              : 5-fold stratified
+
+  scale_pos_weight: 0.370  (n_neg=2,160 / n_pos=5,836)
+
+── XGBoost results ───────────────────────────────────────────
+  Training time    : 3.1s
+  CV AUC (5-fold)  : 0.8390
+  Test AUC         : 0.8348
+  Gini coefficient : 0.6697
+  KS statistic     : 0.5180
+  Test accuracy    : 0.7889
+  Weighted F1      : 0.7926
+  Brier score      : 0.1494
+  Precision        : 0.8728
+  Recall           : 0.8321
+
+  Confusion matrix (test set):
+                       Predicted 0  Predicted 1
+  Actual 0                    363         177
+  Actual 1                    245       1,214
+
+  Classification report:
+               precision    recall  f1-score   support
+
+    Denied(0)       0.60      0.67      0.63       540
+Originated(1)       0.87      0.83      0.85      1459
+
+     accuracy                           0.79      1999
+    macro avg       0.73      0.75      0.74      1999
+ weighted avg       0.80      0.79      0.79      1999
+
+  → Model saved: /content/drive/MyDrive/capstone/models/xgb_model.json
+  ✓ Cell 4 complete
+
+======================================================================
+  CELL 5 · Model 3 — Feedforward Neural Network (FNN)
+======================================================================
+
+  FNN architecture:
+    Input layer   : n_features neurons
+    Hidden layer 1: 64 neurons, ReLU, BatchNorm, Dropout(0.3)
+    Hidden layer 2: 32 neurons, ReLU, BatchNorm, Dropout(0.3)
+    Hidden layer 3: 16 neurons, ReLU, Dropout(0.2)
+    Output layer  : 1 neuron, Sigmoid (binary classification)
+
+  Training config:
+    Optimizer   : Adam (lr=0.001)
+    Loss        : binary_crossentropy
+    class_weight: balanced (corrects for imbalance)
+    Epochs      : 50 (with early stopping, patience=10)
+    Batch size  : 256
+    Validation  : 15% hold-out from training set
+    CV          : 5-fold (reconstructed from per-fold models)
+
+  Architecture rationale:
+    3 hidden layers provides sufficient capacity for non-linear
+    credit risk patterns without overfitting on ~8,000 training rows.
+    BatchNorm stabilises training. Dropout prevents co-adaptation.
+    Shallow architecture (64→32→16) chosen to maximise SHAP
+    interpretability (fewer neurons = more stable SHAP values).
+
+  Under SR 11-7 (replaced by SR 26-2), neural networks must demonstrate
+  measurable performance gains over the LR baseline while maintaining
+  explainability and fairness controls.
+
+  Input dimension: 8 features
+  Class weights: {0: np.float64(1.8509259259259259), 1: np.float64(0.6850582590815627)}
+
+  Running 5-fold CV for FNN...
+    Fold 1/5 AUC: 0.8374
+    Fold 2/5 AUC: 0.8125
+    Fold 3/5 AUC: 0.8351
+    Fold 4/5 AUC: 0.8419
+    Fold 5/5 AUC: 0.8003
+  CV AUC mean: 0.8254  std: 0.0162
+
+── FNN results ───────────────────────────────────────────────
+  Total training time : 134.9s
+  CV AUC (5-fold)     : 0.8246
+  Test AUC            : 0.8043
+  Gini coefficient    : 0.6087
+  KS statistic        : 0.4695
+  Test accuracy       : 0.8049
+  Weighted F1         : 0.7979
+  Brier score         : 0.1557
+  Precision           : 0.8420
+  Recall              : 0.9020
+
+  Confusion matrix (test set):
+                       Predicted 0  Predicted 1
+  Actual 0                    293         247
+  Actual 1                    143       1,316
+
+  Classification report:
+               precision    recall  f1-score   support
+
+    Denied(0)       0.67      0.54      0.60       540
+Originated(1)       0.84      0.90      0.87      1459
+
+     accuracy                           0.80      1999
+    macro avg       0.76      0.72      0.74      1999
+ weighted avg       0.80      0.80      0.80      1999
+
+  → Model saved: /content/drive/MyDrive/capstone/models/fnn_model.keras
+  ✓ Cell 5 complete
+
+======================================================================
+  CELL 6 · Statistical tests — DeLong & McNemar
+======================================================================
+
+  H₁₀: There is no statistically significant difference in AUC
+        across model types (LR vs XGBoost vs FNN).
+
+  Tests applied:
+    DeLong (1988) — pairwise AUC comparison on held-out test set
+    McNemar       — pairwise accuracy comparison on held-out test set
+
+  Significance level: α = 0.05
+  Decision: Reject H₁₀ if p < 0.05 for any pairwise comparison.
+
+
+── DeLong AUC comparison tests ───────────────────────────────
+
+  Comparison                AUC_A    AUC_B     ΔAUC   z-stat    p-value             Decision
+  ------------------------------------------------------------------------------------------
+  XGBoost vs LR            0.8348   0.7167  +0.1181   10.160     0.0000    Reject H₁₀ (sig.)
+  FNN vs LR                0.8043   0.7167  +0.0876    8.039     0.0000    Reject H₁₀ (sig.)
+  XGBoost vs FNN           0.8348   0.8043  +0.0305    4.634     0.0000    Reject H₁₀ (sig.)
+
+── McNemar accuracy comparison tests ─────────────────────────
+
+  Comparison                 chi2    p-value             Decision
+  -----------------------------------------------------------------
+  XGBoost vs LR            61.837     0.0000    Reject H₁₀ (sig.)
+  FNN vs LR                89.797     0.0000    Reject H₁₀ (sig.)
+  XGBoost vs FNN            3.408     0.0649   Fail to reject H₁₀
+
+── H₁₀ verdict ───────────────────────────────────────────────
+
+  Interpretation guidelines:
+    - ΔAUC ≥ 0.05 with p < 0.05 = practically AND statistically significant
+    - ΔAUC < 0.05 with p < 0.05 = statistically significant but small effect
+    - p ≥ 0.05 = insufficient evidence to reject H₁₀
+
+  SR 11-7 (replaced by SR 26-2) implication:
+    Even if XGBoost or FNN achieve higher AUC, the MRRS framework
+    penalises gains in accuracy that come at the cost of fairness,
+    explainability, or stability — which is the core contribution
+    of this capstone project.
+
+  ✓ Cell 6 complete
+
+======================================================================
+  CELL 7 · Comparison table & visualisations
+======================================================================
+
+── Table 2 — Model performance comparison (RQ1) ──────────────
+
+             Metric Logistic Regression XGBoost    FNN
+AUC-ROC (CV 5-fold)              0.7437  0.8390 0.8246
+     AUC-ROC (test)              0.7167  0.8348 0.8043
+   Gini coefficient              0.4334  0.6697 0.6087
+       KS statistic              0.3553  0.5180 0.4695
+           Accuracy              0.7019  0.7889 0.8049
+        Weighted F1              0.7136  0.7926 0.7979
+          Precision              0.8390  0.8728 0.8420
+             Recall              0.7320  0.8321 0.9020
+        Brier score              0.2057  0.1494 0.1557
+
+  → Table 2 saved: /content/drive/MyDrive/capstone/reports/table2_model_comparison.csv
+  → Figure 6 saved: /content/drive/MyDrive/capstone/reports/figures/fig06_roc_curves.png
+  → Figure 7 saved: /content/drive/MyDrive/capstone/reports/figures/fig07_auc_comparison.png
+  → Figure 8 saved: /content/drive/MyDrive/capstone/reports/figures/fig08_confusion_matrices.png
+  → Figure 9 saved: /content/drive/MyDrive/capstone/reports/figures/fig09_fnn_training_history.png
+  → Figure 10 saved: /content/drive/MyDrive/capstone/reports/figures/fig10_xgb_feature_importance.png
+  ✓ Cell 7 complete
+
+======================================================================
+  CELL 8 · Save test probabilities & predictions
+======================================================================
+
+  Saving test set probabilities and predictions for:
+    Notebook 03 — RQ2 fairness analysis (needs model predictions on test set)
+    Notebook 04 — RQ3 SHAP explainability (needs trained models)
+    Notebook 06 — RQ5 MRRS composite scoring (needs all metric outputs)
+
+  → Test predictions saved: /content/drive/MyDrive/capstone/data/processed/hmda_2024_test_predictions.csv
+  → RQ1 metrics JSON saved: /content/drive/MyDrive/capstone/reports/rq1_metrics.json
+  ✓ Cell 8 complete
+
+======================================================================
+  CELL 9 · RQ1 readiness verdict
+======================================================================
+
+  ✓  Logistic Regression trained and evaluated
+  ✓  XGBoost trained and evaluated
+  ✓  FNN trained and evaluated
+  ✓  AUC thresholds met (all models ≥ 0.70 acceptable)
+       LR=0.7167  XGB=0.8348  FNN=0.8043
+  ✓  DeLong tests run for all pairwise comparisons
+  ✓  Models saved to Drive
+  ✓  Test predictions saved for RQ2/RQ3 notebooks
+  ✓  RQ1 metrics JSON saved for MRRS notebook
+  ✓  Figures 6–10 saved
+
+  Result: 9/9 checks passed  ✓  Ready to proceed to notebook 03
+
+  Next step: notebook 03_rq2_fairness_analysis.ipynb

@@ -1,0 +1,206 @@
+
+======================================================================
+  CELL 1 · Load metric outputs from RQ1–RQ4
+======================================================================
+
+  Loading JSON metric files produced by notebooks 02–05.
+  Each file contains the raw metric values for LR, XGBoost, and FNN
+  across the four MRRS dimensions.
+
+  ✓ RQ1 metrics loaded: /content/drive/MyDrive/capstone/reports/rq1_metrics.json
+  ✓ RQ2 metrics loaded: /content/drive/MyDrive/capstone/reports/rq2_metrics.json
+  ✓ RQ3 metrics loaded: /content/drive/MyDrive/capstone/reports/rq3_metrics.json
+  ✓ RQ4 metrics loaded: /content/drive/MyDrive/capstone/reports/rq4_metrics.json
+
+  Models: ['Logistic Regression', 'XGBoost', 'FNN']
+  ✓ Cell 1 complete
+
+======================================================================
+  CELL 2 · SR 11-7 / SR 26-2 weights and MRRS formula
+======================================================================
+
+  SR 11-7 / SR 26-2 Guidance on Model Risk Management
+  SR 11-7 (Federal Reserve, 2011) superseded by SR 26-2 (Fed/OCC/FDIC, April 2026).
+  All four MRRS dimensions and thresholds remain valid under SR 26-2.
+  explicitly identifies four dimensions of model risk:
+
+  1. Predictive Performance — "models should be evaluated on their
+     ability to predict outcomes accurately" (SR 11-7, Section III)
+     Weight rationale: Primary purpose of a credit model. Highest
+     weight because a model that cannot discriminate risk is
+     fundamentally unfit for purpose.
+     SR 11-7/SR 26-2 weight: 0.35
+
+  2. Fairness — ECOA, Fair Housing Act, and SR 11-7 Section IV
+     require models to be free of discriminatory bias. DIR < 0.80
+     constitutes adverse impact under the 4/5ths rule.
+     Weight rationale: Regulatory non-negotiable. A model with
+     adverse impact cannot be deployed regardless of accuracy.
+     SR 11-7/SR 26-2 weight: 0.30
+
+  3. Explainability — SR 11-7 requires that "model users understand
+     the model's limitations and assumptions" (Section III).
+     SHAP stability measures whether explanations are consistent
+     and defensible across different data samples.
+     Weight rationale: Directly tied to SR 11-7 documentation
+     requirements and examiner expectations.
+     SR 11-7/SR 26-2 weight: 0.20
+
+  4. Temporal Stability — SR 11-7 Section V requires ongoing
+     monitoring for model degradation. PSI > 0.25 triggers
+     mandatory model review under industry practice.
+     Weight rationale: Critical for long-term deployment but
+     secondary to initial performance and fairness.
+     SR 11-7/SR 26-2 weight: 0.15
+
+  Total: 0.35 + 0.30 + 0.20 + 0.15 = 1.00
+
+  MRRS weights:
+    performance     : 0.35  (35%)
+    fairness        : 0.30  (30%)
+    explainability  : 0.20  (20%)
+    stability       : 0.15  (15%)
+  Total weight   : 1.00
+  ✓ Cell 2 complete
+
+======================================================================
+  CELL 3 · Fixed SR 26-2 threshold scoring
+======================================================================
+
+======================================================================
+  CELL 3 · Fixed SR 26-2 threshold scoring
+======================================================================
+
+======================================================================
+  CELL 4 · Compute MRRS composite scores
+======================================================================
+
+  MRRS = Σ wᵢ × NormalizedScoreᵢ
+
+  Applying SR 11-7 weights:
+    Performance    : 0.35
+    Fairness       : 0.30
+    Explainability : 0.20
+    Stability      : 0.15
+
+
+── MRRS scores and ranking ───────────────────────────────────
+
+  Model                         Perf     Fair     Expl     Stab     MRRS   Rank
+  ----------------------------------------------------------------------------
+  FNN                         0.3500   0.1500   0.2000   0.0000   0.7000     #1
+  XGBoost                     0.3500   0.0000   0.2000   0.0000   0.5500     #2
+  Logistic Regression         0.1750   0.0000   0.2000   0.0000   0.3750     #3
+
+  MRRS ranking:
+    #1: FNN  (MRRS = 0.7000)
+    #2: XGBoost  (MRRS = 0.5500)
+    #3: Logistic Regression  (MRRS = 0.3750)
+
+  SR 11-7 compliance interpretation:
+    MRRS ≥ 0.70 → Strong regulatory readiness
+    MRRS 0.50–0.70 → Moderate — targeted improvements needed
+    MRRS < 0.50 → Weak — significant gaps require remediation
+
+  FNN                      : 0.7000  → Strong regulatory readiness
+  XGBoost                  : 0.5500  → Moderate — targeted improvements needed
+  Logistic Regression      : 0.3750  → Weak — significant gaps require remediation
+  ✓ Cell 4 complete
+
+======================================================================
+  CELL 5 · Sensitivity analysis — weight perturbation ±10%
+======================================================================
+
+  Tests whether the MRRS ranking is robust to small changes in weights.
+  For each dimension, increase its weight by 10% and decrease all
+  others proportionally. Check whether the model ranking changes.
+
+  A ranking that is stable across all perturbations demonstrates
+  that the results are not driven by the specific weight choice —
+  important for the validity of the MRRS as a regulatory tool.
+
+
+  Perturbation              Ranking                                                  Changed
+  ------------------------------------------------------------------------------------------
+  performance +10%          FNN > XGBoost > Logistic Reg                                No ✓
+  fairness +10%             FNN > XGBoost > Logistic Reg                                No ✓
+  explainability +10%       FNN > XGBoost > Logistic Reg                                No ✓
+  stability +10%            FNN > XGBoost > Logistic Reg                                No ✓
+
+  Ranking stable in 4/4 perturbation scenarios
+  ✓ MRRS ranking is fully robust to ±10% weight perturbations
+  ✓ Cell 5 complete
+  Cell 6 (Cohen's Kappa) intentionally skipped — see docstring above.
+  Robustness is assessed via Cell 5 sensitivity analysis instead.
+  ✓ Cell 6 stub complete
+
+======================================================================
+  CELL 7 · MRRS visualisations
+======================================================================
+  → Figure 25 saved: /content/drive/MyDrive/capstone/reports/figures/fig25_mrrs_radar.png
+  → Figure 26 saved: /content/drive/MyDrive/capstone/reports/figures/fig26_mrrs_stacked.png
+  → Figure 27 saved: /content/drive/MyDrive/capstone/reports/figures/fig27_mrrs_heatmap.png
+  → Figure 28 saved: /content/drive/MyDrive/capstone/reports/figures/fig28_mrrs_sensitivity.png
+  ✓ Cell 7 complete
+
+======================================================================
+  CELL 8 · Save MRRS results
+======================================================================
+  → MRRS results saved: /content/drive/MyDrive/capstone/reports/mrrs_results.json
+  → MRRS table saved: /content/drive/MyDrive/capstone/reports/table5_mrrs_scores.csv
+  ✓ Cell 8 complete
+
+======================================================================
+  CELL 9 · RQ5 readiness verdict and project summary
+======================================================================
+
+  ✓  RQ1–RQ4 metric JSONs loaded
+  ✓  MRRS weights sum to 1.0
+  ✓  All three models scored
+  ✓  MRRS ranking produced
+  ✓  Sensitivity analysis completed
+  ✓  Sensitivity analysis stable across ≥ 3/4 scenarios
+       Stable in 4/4 perturbation scenarios
+  ✓  Figures 25–28 saved
+  ✓  MRRS results JSON saved
+  ✓  MRRS table CSV saved
+
+── Complete project summary — all five RQs ───────────────────
+
+  RQ1 — Predictive Performance:
+    H₁₀ rejected for all pairwise comparisons (DeLong test, p<.0001)
+    XGBoost AUC = 0.8348 (best)
+    LR AUC      = 0.7167 (regulatory baseline)
+    FNN AUC     = 0.8043
+
+  RQ2 — Fairness and Bias:
+    H₂₀ₐ rejected for LR and XGBoost (AI/AN DIR < 0.80)
+    H₂₀ᵦ rejected for Hispanic/Latino (OLS β = +0.112, p = .030)
+    FNN showed no adverse impact (min DIR = 0.829)
+
+  RQ3 — Explainability:
+    All three models: HIGH SHAP stability (ρ ≥ 0.90)
+    Cross-model ranking correlation = 1.000 (unanimous: DTI #1)
+    H₃₀ not rejected — no accuracy-interpretability trade-off
+
+  RQ4 — Temporal Stability:
+    All models triggered SR 11-7 review threshold from 2022Q3
+    H₄₀ rejected for FNN (β₁ = nan, p = nan)
+    FNN mean PSI = 0.982 (highest drift)
+    XGBoost mean PSI = 0.359 (most stable)
+
+  RQ5 — MRRS Composite Score:
+    Ranking: FNN > XGBoost > Logistic Regression
+    FNN MRRS = 0.7000 (best overall SR 11-7 readiness)
+    Sensitivity: ranking stable in 4/4 weight perturbation scenarios
+
+
+  Result: 9/9 checks passed  ✓  Project complete — all six notebooks done
+
+  Outputs ready for interim report:
+    Table 2 : /content/drive/MyDrive/capstone/reports/table2_model_comparison.csv
+    Table 3 : /content/drive/MyDrive/capstone/reports/table3_dir_by_model.csv
+    Table 4 : /content/drive/MyDrive/capstone/reports/table4_quarterly_psi_auc.csv
+    Table 5 : /content/drive/MyDrive/capstone/reports/table5_mrrs_scores.csv
+    Figures : /content/drive/MyDrive/capstone/reports/figures/fig01 through fig28
+    Reports : /content/drive/MyDrive/capstone/reports/rq1 through rq5 report TXT files

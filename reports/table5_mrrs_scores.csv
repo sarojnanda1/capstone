@@ -1,0 +1,4 @@
+Model,Performance,Fairness,Explainability,Stability,MRRS,Rank
+FNN,1.0000,0.5000,1.0000,0.0000,0.7000,1
+XGBoost,1.0000,0.0000,1.0000,0.0000,0.5500,2
+Logistic Regression,0.5000,0.0000,1.0000,0.0000,0.3750,3
